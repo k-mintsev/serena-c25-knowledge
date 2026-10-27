@@ -161,12 +161,13 @@
     $('metrics').innerHTML=values.join('');
     $('status').textContent=`Решатель: ${scene.solver.ok?'допустимая поза':'ограничение, сохранена последняя допустимая поза'}; максимальная невязка ${scene.solver.maxError.toExponential(2)} нормированных единиц. Реальные координаты и характеристики подвески пока не измерены.`;
   }
-  function selectPart(id,scroll=false) {
+  function selectPart(id,scroll=false,procedure=null) {
     if(!byId[id])return;
     if(!belongsToPage(id)){location.assign(partRoute(id));return;}
     selected=id;system=byId[id].system;view=byId[id].bestView;isolated=true;scope='assembly';hiddenParts.delete(id);
     try{localStorage.setItem('serena-kb-part',id);localStorage.setItem('serena-kb-part-'+pageKind,id);}catch{}
-    history.replaceState(null,'',`#part=${id}`);
+    const procedureId=(db.service.procedures||[]).some(p=>p.id===procedure)?procedure:null;
+    history.replaceState(null,'',`#part=${id}${procedureId?'&procedure='+encodeURIComponent(procedureId):''}`);
     renderCard();
     if(scroll)window.scrollTo({top:0,behavior:'auto'});
   }
@@ -233,9 +234,10 @@
     if(['spring','damping','antiroll'].includes(id)){sim.setParameters({[id]:+e.target.value});$(id+'-value').textContent=fmt(+e.target.value)+'×';}
   });
   $('zoom').addEventListener('click',e=>{if(e.target===$('zoom'))$('zoom').close();});
-  window.addEventListener('hashchange',()=>{const match=location.hash.match(/^#part=([a-z]\d)$/);if(match&&byId[match[1]])selectPart(match[1]);});
-  let initial=location.hash.match(/^#part=([a-z]\d)$/)?.[1];
-  if(pageKind==='vehicle'&&byId[initial]){location.replace(partRoute(initial));return;}
+  window.addEventListener('hashchange',()=>{const params=new URLSearchParams(location.hash.slice(1)),id=params.get('part');if(byId[id])selectPart(id,false,params.get('procedure'));});
+  const initialParams=new URLSearchParams(location.hash.slice(1));
+  let initial=initialParams.get('part');
+  if(pageKind==='vehicle'&&byId[initial]){location.replace(partRoute(initial)+(initialParams.get('procedure')?'&procedure='+encodeURIComponent(initialParams.get('procedure')):''));return;}
   try{initial=initial||localStorage.getItem('serena-kb-part-'+pageKind)||localStorage.getItem('serena-kb-part');}catch{}
   if(pageKind==='vehicle'){
     selected=byId[initial]?initial:'a1';system=byId[selected].system;scope='vehicle';view='side';isolated=false;renderHome();
@@ -243,7 +245,7 @@
     system=pageKind;selected=db.systems.find(s=>s.id===pageKind).contextParts?.[0]||'a1';renderCard();
   }else{
     const first=pageParts()[0].id;
-    selectPart(belongsToPage(initial)?initial:first);
+    selectPart(belongsToPage(initial)?initial:first,false,initialParams.get('procedure'));
   }
   requestAnimationFrame(animate);
   // Read-only inspection is useful for reproducible QA without reaching into closures.

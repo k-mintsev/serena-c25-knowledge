@@ -4,6 +4,18 @@
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   let phase='removal',guideChoice=null,current=null;
   const stepChoice=new Map();
+  const procedure=db=>(db.service.procedures||[]).find(p=>p.id===new URLSearchParams(location.hash.slice(1)).get('procedure'));
+  function stepText(value) {
+    const text=String(value),pattern=/\[([^\]]+)\]\((part|procedure):([a-z0-9-]+)\)/g;
+    let result='',offset=0;
+    for(const match of text.matchAll(pattern)) {
+      result+=esc(text.slice(offset,match.index));
+      if(match[2]==='part')result+=partLink(match[3],match[1]);
+      else result+=`<a href="#part=${esc(current.part.id)}&amp;procedure=${esc(match[3])}">${esc(match[1])}</a>`;
+      offset=match.index+match[0].length;
+    }
+    return result+esc(text.slice(offset));
+  }
   function partLink(id,label) {
     const part=current.db.components.find(p=>p.id===id);
     const page=current.db.systems.find(s=>s.status==='partial'&&s.contextParts?.includes(id))?.id||part.system;
@@ -14,13 +26,13 @@
     const title=op=>op[phase+'Title']||op.title;
     const prerequisites=guide.prerequisites||[];
     return `<section class="panel reader-section service-panel" id="service" data-guide="${esc(guide.id)}" data-ready="${guide.readyForWork}" data-phase="${phase}">
-      <h2>Снятие и установка</h2><p class="reader-service-caption">${esc(guide.photoCaption||guide.title)}</p>
+      <h2>${esc(guide.sectionTitle||'Снятие и установка')}</h2>${guide.returnHref?`<p><a href="${esc(guide.returnHref)}">← Вернуться к узлу: ${esc(current.part.name)}</a></p>`:''}<p class="reader-service-caption">${esc(guide.photoCaption||guide.title)}</p>
       ${phase==='removal'&&prerequisites.length?`<div class="service-prerequisites"><h3>Перед началом</h3><ul>${prerequisites.map(p=>`<li>${p.partId?partLink(p.partId,p.title):esc(p.title)}${p.detail?`<span>${esc(p.detail)}</span>`:''}</li>`).join('')}</ul></div>`:''}
       <div class="service-phases" role="group" aria-label="Этап работ"><button data-service-phase="removal" aria-pressed="${phase==='removal'}">Снятие</button><button data-service-phase="installation" aria-pressed="${phase==='installation'}">Установка</button></div>
       <nav class="service-photo-route" aria-label="Шаги инструкции">${operations.map((op,i)=>`<button data-service-index="${i}" aria-current="${index===i?'step':'false'}"><span>${i+1}</span>${esc(title(op))}</button>`).join('')}</nav>
       ${operations.map((op,i)=>{
         const imageId=op[phase+'ImageId']||op.imageId;
-        return `<article class="reader-service-card" tabindex="-1" id="service-op-${op.id}" data-operation="${op.id}" ${index===i?'':'hidden'}><p class="service-step-count">Шаг ${i+1} из ${operations.length}</p><h3>${esc(title(op))}</h3>${imageId?photo(media.service[imageId],title(op),op[phase+'Caption']||op.imageCaption||'Иллюстрация по материалу источника.'):''}<ol>${(op[phase+'Display']||op[phase]).map(t=>`<li>${esc(t)}</li>`).join('')}</ol>${phase==='installation'&&op.returnParts?.length?`<p class="service-return">Вернуть на место: ${op.returnParts.map(id=>partLink(id)).join(' · ')}</p>`:''}</article>`;
+        return `<article class="reader-service-card" tabindex="-1" id="service-op-${op.id}" data-operation="${op.id}" ${index===i?'':'hidden'}><p class="service-step-count">Шаг ${i+1} из ${operations.length}</p><h3>${esc(title(op))}</h3>${imageId?photo(media.service[imageId],title(op),op[phase+'Caption']||op.imageCaption||'Иллюстрация по материалу источника.'):''}<ol>${(op[phase+'Display']||op[phase]).map(t=>`<li>${stepText(t)}</li>`).join('')}</ol>${phase==='installation'&&op.returnParts?.length?`<p class="service-return">Вернуть на место: ${op.returnParts.map(id=>partLink(id)).join(' · ')}</p>`:''}</article>`;
       }).join('')}
       <div class="service-step-controls"><button data-service-index="${index-1}" ${index===0?'disabled':''}>← Назад</button><span>${index+1} / ${operations.length}</span><button class="primary" data-service-index="${index+1}" ${index===operations.length-1?'disabled':''}>Далее →</button></div>
     </section>`;
@@ -36,11 +48,14 @@
     return mode==='installation'?guide.installationOrder.map(id=>byId.get(id)):result;
   }
   function operationsFor(part,db) {
+    const selected=procedure(db);if(selected)return selected.operationIds.map(id=>db.service.operations.find(op=>op.id===id));
     const ids=new Set();
     return db.service.guides.filter(g=>part.serviceGuideIds.includes(g.id)).flatMap(g=>order(g,db.service.operations,'removal')).filter(op=>{if(ids.has(op.id))return false;ids.add(op.id);return true;});
   }
   function render(part,db,media,photo,sourceLink) {
     current={part,db,media,photo,sourceLink};
+    const selected=procedure(db);
+    if(selected)return renderPhotoSteps({...selected,sectionTitle:selected.title,returnHref:'#part='+part.id,readyForWork:false},selected.operationIds.map(id=>db.service.operations.find(op=>op.id===id)),photo,media);
     const guides=(db.service?.guides||[]).filter(g=>part.serviceGuideIds?.includes(g.id));
     if(!guides.length){
       const group=db.assemblies.find(a=>a.id===part.assemblyId);
