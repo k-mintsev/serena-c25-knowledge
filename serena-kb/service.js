@@ -27,6 +27,7 @@
     const prerequisites=guide.prerequisites||[];
     return `<section class="panel reader-section service-panel" id="service" data-guide="${esc(guide.id)}" data-ready="${guide.readyForWork}" data-phase="${phase}">
       <h2>${esc(guide.sectionTitle||'Снятие и установка')}</h2>${guide.returnHref?`<p><a href="${esc(guide.returnHref)}">← Вернуться к узлу: ${esc(current.part.name)}</a></p>`:''}<p class="reader-service-caption">${esc(guide.photoCaption||guide.title)}</p>
+      ${phase==='removal'&&guide.preparation?.length?`<div class="service-preparation"><h3>До начала</h3><ol>${guide.preparation.map(t=>`<li>${stepText(t)}</li>`).join('')}</ol></div>`:''}
       ${phase==='removal'&&prerequisites.length?`<div class="service-prerequisites"><h3>Перед началом</h3><ul>${prerequisites.map(p=>`<li>${p.partId?partLink(p.partId,p.title):esc(p.title)}${p.detail?`<span>${esc(p.detail)}</span>`:''}</li>`).join('')}</ul></div>`:''}
       <div class="service-phases" role="group" aria-label="Этап работ"><button data-service-phase="removal" aria-pressed="${phase==='removal'}">Снятие</button><button data-service-phase="installation" aria-pressed="${phase==='installation'}">Установка</button></div>
       <nav class="service-photo-route" aria-label="Шаги инструкции">${operations.map((op,i)=>`<button data-service-index="${i}" aria-current="${index===i?'step':'false'}"><span>${i+1}</span>${esc(title(op))}</button>`).join('')}</nav>
@@ -34,6 +35,7 @@
         const imageId=op[phase+'ImageId']||op.imageId;
         return `<article class="reader-service-card" tabindex="-1" id="service-op-${op.id}" data-operation="${op.id}" ${index===i?'':'hidden'}><p class="service-step-count">Шаг ${i+1} из ${operations.length}</p><h3>${esc(title(op))}</h3>${imageId?photo(media.service[imageId],title(op),op[phase+'Caption']||op.imageCaption||'Иллюстрация по материалу источника.'):''}<ol>${(op[phase+'Display']||op[phase]).map(t=>`<li>${stepText(t)}</li>`).join('')}</ol>${phase==='installation'&&op.returnParts?.length?`<p class="service-return">Вернуть на место: ${op.returnParts.map(id=>partLink(id)).join(' · ')}</p>`:''}</article>`;
       }).join('')}
+      ${phase==='installation'&&index===operations.length-1&&guide.completion?.length?`<div class="service-completion"><h3>Завершение</h3><ol>${guide.completion.map(t=>`<li>${stepText(t)}</li>`).join('')}</ol></div>`:''}
       <div class="service-step-controls"><button data-service-index="${index-1}" ${index===0?'disabled':''}>← Назад</button><span>${index+1} / ${operations.length}</span><button class="primary" data-service-index="${index+1}" ${index===operations.length-1?'disabled':''}>Далее →</button></div>
     </section>`;
   }
