@@ -33,7 +33,7 @@
       <nav class="service-photo-route" aria-label="Шаги инструкции">${operations.map((op,i)=>`<button data-service-index="${i}" aria-current="${index===i?'step':'false'}"><span>${i+1}</span>${esc(title(op))}</button>`).join('')}</nav>
       ${operations.map((op,i)=>{
         const imageId=op[phase+'ImageId']||op.imageId;
-        return `<article class="reader-service-card" tabindex="-1" id="service-op-${op.id}" data-operation="${op.id}" ${index===i?'':'hidden'}><p class="service-step-count">Шаг ${i+1} из ${operations.length}</p><h3>${esc(title(op))}</h3>${imageId?photo(media.service[imageId],title(op),op[phase+'Caption']||op.imageCaption||'Иллюстрация по материалу источника.'):''}<ol>${(op[phase+'Display']||op[phase]).map(t=>`<li>${stepText(t)}</li>`).join('')}</ol>${hardwareLinks(op)}${phase==='installation'&&op.returnParts?.length?`<p class="service-return">Вернуть на место: ${op.returnParts.map(id=>partLink(id)).join(' · ')}</p>`:''}</article>`;
+        return `<article class="reader-service-card" tabindex="-1" id="service-op-${op.id}" data-operation="${op.id}" ${index===i?'':'hidden'}><p class="service-step-count">Шаг ${i+1} из ${operations.length}</p><h3>${esc(title(op))}</h3>${collisionNotice(imageId,media)}${imageId?photo(media.service[imageId],title(op),op[phase+'Caption']||op.imageCaption||'Иллюстрация по материалу источника.'):''}<ol>${(op[phase+'Display']||op[phase]).map(t=>`<li>${stepText(t)}</li>`).join('')}</ol>${hardwareLinks(op)}${phase==='installation'&&op.returnParts?.length?`<p class="service-return">Вернуть на место: ${op.returnParts.map(id=>partLink(id)).join(' · ')}</p>`:''}</article>`;
       }).join('')}
       ${phase==='installation'&&index===operations.length-1&&guide.completion?.length?`<div class="service-completion"><h3>Завершение</h3><ol>${guide.completion.map(t=>`<li>${stepText(t)}</li>`).join('')}</ol></div>`:''}
       <div class="service-step-controls"><button data-service-index="${index-1}" ${index===0?'disabled':''}>← Назад</button><span>${index+1} / ${operations.length}</span><button class="primary" data-service-index="${index+1}" ${index===operations.length-1?'disabled':''}>Далее →</button></div>
@@ -44,6 +44,11 @@
     if(!library)return '';
     const ids=op.fastenerAssetIds||[];
     return `<div class="service-hardware">${ids.map(id=>{const entry=library.entries.find(e=>e.id===id);return `<button class="${entry.kind==='tool'?'tool-link':'fastener-link'}" data-fastener="${esc(id)}">${esc(id+' · '+entry.title)} ↗</button>`;}).join('')}<button data-fastener="wall">Стенд крепежей и инструментов ↗</button></div>`;
+  }
+  function collisionNotice(imageId,media) {
+    const check=media.supplemental?.[imageId]?.collisionValidation;
+    if(!check||check.status==='CLEAR')return '';
+    return `<aside class="collision-warning" role="alert"><strong>${check.errorCount?'В модели обнаружены пересечения':'Проверка геометрии не завершена'}</strong><p>Красным выделена проблемная зона${check.focusLabels?.length?': '+check.focusLabels.map(esc).join(' / '):''}.</p><p>Этот кадр показывает ошибку модели; геометрию нужно исправить.</p><details><summary>Результат проверки</summary><p>Подтверждено пересечений: ${esc(check.errorCount)}; требуют уточнения: ${esc(check.warningCount)}.</p></details></aside>`;
   }
   function openHardware(id) {
     const library=current.db.service.fastenerLibrary;

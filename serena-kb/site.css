@@ -130,6 +130,9 @@
 .service-step-controls button{font-size:13px}
 .service-step-controls button:disabled{opacity:.4;cursor:default}
 .service-return{font-size:14px}
+.collision-warning{border:1px solid #d85c49;border-left:5px solid #c93824;border-radius:8px;background:#fff1ed;color:#792718;padding:13px 15px;margin:14px 0;font-size:13px}
+.collision-warning p{margin:6px 0;font-size:13px}
+.collision-warning summary{cursor:pointer;font-size:12px}
 .service-hardware{display:flex;flex-wrap:wrap;gap:7px;margin:16px 0}
 .service-hardware button{font-size:12px;text-align:left;padding:8px 10px}
 .service-hardware .tool-link{border-left:4px solid #1299cf}
