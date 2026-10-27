@@ -1,0 +1,18 @@
+.seal-diagram { margin:18px 0; }
+.seal-diagram .seal-section { display:block; width:100%; height:auto; max-height:none; }
+.seal-diagram .seal-section text { fill:var(--foreground); font-size:var(--font-size-base); font-weight:400; }
+.seal-diagram .seal-housing, .seal-diagram .seal-gear { fill:var(--border); stroke:var(--foreground); stroke-width:1; }
+.seal-diagram .seal-fluid { fill:var(--viz-series-1); opacity:.09; }
+.seal-diagram .seal-shaft { fill:var(--border); stroke:var(--foreground); stroke-width:1.5; }
+.seal-diagram .seal-elastomer { fill:var(--viz-series-1); fill-opacity:.3; stroke:var(--viz-series-1); stroke-width:1.5; }
+.seal-diagram .seal-case { fill:none; stroke:var(--foreground); stroke-width:3; }
+.seal-diagram .seal-spring { fill:none; stroke:var(--foreground); stroke-width:2; }
+.seal-diagram .seal-spline, .seal-diagram .seal-clip, .seal-diagram .seal-guides, .seal-diagram .seal-motion { stroke:var(--foreground); stroke-width:1.2; fill:none; }
+.seal-diagram .seal-number circle { fill:var(--background); stroke:var(--foreground); stroke-width:1; }
+.seal-diagram .seal-number text { fill:var(--foreground); stroke:none; }
+.seal-diagram .seal-tool { fill:var(--viz-series-2); fill-opacity:.25; stroke:var(--foreground); }
+.seal-diagram .seal-protector { stroke:var(--viz-series-2); stroke-width:4; fill:none; }
+.seal-diagram .seal-risk { stroke:var(--destructive); stroke-width:3; fill:none; }
+.seal-diagram .seal-legend { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px 30px; padding-left:23px; }
+.seal-diagram .seal-detail { min-height:3.2em; }
+@media(max-width:600px) { .seal-diagram .seal-legend { grid-template-columns:1fr; } }
