@@ -33,11 +33,28 @@
       <nav class="service-photo-route" aria-label="Шаги инструкции">${operations.map((op,i)=>`<button data-service-index="${i}" aria-current="${index===i?'step':'false'}"><span>${i+1}</span>${esc(title(op))}</button>`).join('')}</nav>
       ${operations.map((op,i)=>{
         const imageId=op[phase+'ImageId']||op.imageId;
-        return `<article class="reader-service-card" tabindex="-1" id="service-op-${op.id}" data-operation="${op.id}" ${index===i?'':'hidden'}><p class="service-step-count">Шаг ${i+1} из ${operations.length}</p><h3>${esc(title(op))}</h3>${imageId?photo(media.service[imageId],title(op),op[phase+'Caption']||op.imageCaption||'Иллюстрация по материалу источника.'):''}<ol>${(op[phase+'Display']||op[phase]).map(t=>`<li>${stepText(t)}</li>`).join('')}</ol>${phase==='installation'&&op.returnParts?.length?`<p class="service-return">Вернуть на место: ${op.returnParts.map(id=>partLink(id)).join(' · ')}</p>`:''}</article>`;
+        return `<article class="reader-service-card" tabindex="-1" id="service-op-${op.id}" data-operation="${op.id}" ${index===i?'':'hidden'}><p class="service-step-count">Шаг ${i+1} из ${operations.length}</p><h3>${esc(title(op))}</h3>${imageId?photo(media.service[imageId],title(op),op[phase+'Caption']||op.imageCaption||'Иллюстрация по материалу источника.'):''}<ol>${(op[phase+'Display']||op[phase]).map(t=>`<li>${stepText(t)}</li>`).join('')}</ol>${hardwareLinks(op)}${phase==='installation'&&op.returnParts?.length?`<p class="service-return">Вернуть на место: ${op.returnParts.map(id=>partLink(id)).join(' · ')}</p>`:''}</article>`;
       }).join('')}
       ${phase==='installation'&&index===operations.length-1&&guide.completion?.length?`<div class="service-completion"><h3>Завершение</h3><ol>${guide.completion.map(t=>`<li>${stepText(t)}</li>`).join('')}</ol></div>`:''}
       <div class="service-step-controls"><button data-service-index="${index-1}" ${index===0?'disabled':''}>← Назад</button><span>${index+1} / ${operations.length}</span><button class="primary" data-service-index="${index+1}" ${index===operations.length-1?'disabled':''}>Далее →</button></div>
     </section>`;
+  }
+  function hardwareLinks(op) {
+    const library=current.db.service.fastenerLibrary;
+    if(!library)return '';
+    const ids=op.fastenerAssetIds||[];
+    return `<div class="service-hardware">${ids.map(id=>{const entry=library.entries.find(e=>e.id===id);return `<button class="${entry.kind==='tool'?'tool-link':'fastener-link'}" data-fastener="${esc(id)}">${esc(id+' · '+entry.title)} ↗</button>`;}).join('')}<button data-fastener="wall">Стенд крепежей и инструментов ↗</button></div>`;
+  }
+  function openHardware(id) {
+    const library=current.db.service.fastenerLibrary;
+    if(!library)return;
+    document.getElementById('fastener-detail')?.remove();
+    const entry=library.entries.find(e=>e.id===id),dialog=document.createElement('dialog');dialog.id='fastener-detail';
+    const factory=entry?.factory;
+    const fields=entry?.kind==='tool'?[['Роль','Инструмент / оснастка'],['Размер / привод',null],['Выбранная модель',null]]:factory?[['Обозначение резьбы',factory.designation],['Диаметр, мм',factory.diameterMm],['Шаг, мм',factory.pitchMm],['Длина, мм',factory.lengthMm],['Класс прочности',factory.strengthClass],['Номер детали',factory.partNumber],['Затяжка, Н·м',factory.torqueNm]]:[];
+    dialog.setAttribute('aria-labelledby','fastener-heading');
+    dialog.innerHTML=`<div class="fastener-toolbar"><button data-close-fastener>Закрыть</button><label>Деталь <select id="fastener-select"><option value="wall">Общий стенд</option>${library.entries.map(e=>`<option value="${esc(e.id)}" ${id===e.id?'selected':''}>${esc(e.id+' · '+e.title)}</option>`).join('')}</select></label></div><h2 id="fastener-heading">${esc(entry?entry.id+' · '+entry.title:'Крепежи и инструменты — стенд')}</h2>${current.photo(current.media.service[entry?.imageId||library.wallImageId],entry?.title||'Стенд крепежей',entry?.status||'На стенде показаны общие модели; масштабы карточек различаются.')}${entry?`<p>${esc(entry.description)}</p><dl class="fastener-fields">${fields.map(([label,value])=>`<div><dt>${esc(label)}</dt><dd>${esc(value??'Не подтверждено')}</dd></div>`).join('')}</dl>`:''}`;
+    document.body.append(dialog);dialog.addEventListener('close',()=>dialog.remove());dialog.showModal();
   }
   function order(guide,operations,mode=phase) {
     const byId=new Map(operations.map(op=>[op.id,op])),result=[],visited=new Set(),active=new Set();
@@ -72,6 +89,9 @@
     const section=document.getElementById('service');if(section&&current)section.outerHTML=render(current.part,current.db,current.media,current.photo,current.sourceLink);
   }
   document.addEventListener('click',event=>{
+    if(event.target.closest('[data-close-fastener]')){document.getElementById('fastener-detail')?.close();return;}
+    const hardware=event.target.closest('[data-fastener]');
+    if(hardware){openHardware(hardware.dataset.fastener);return;}
     const step=event.target.closest('[data-service-index]');
     if(step&&current){const index=Number(step.dataset.serviceIndex),guide=current.db.service.guides.find(g=>g.id===guideChoice);if(guide&&index>=0&&index<order(guide,current.db.service.operations).length){stepChoice.set(guide.id+phase,index);refresh();}return;}
     const phaseButton=event.target.closest('[data-service-phase]');
@@ -79,6 +99,6 @@
     const jump=event.target.closest('[data-service-jump]');
     if(jump)document.getElementById('service-op-'+jump.dataset.serviceJump)?.scrollIntoView({behavior:'smooth',block:'start'});
   });
-  document.addEventListener('change',event=>{if(event.target.id==='service-guide'){guideChoice=event.target.value;refresh();}});
+  document.addEventListener('change',event=>{if(event.target.id==='fastener-select')openHardware(event.target.value);if(event.target.id==='service-guide'){guideChoice=event.target.value;refresh();}});
   globalThis.SerenaService={render,operationsFor};
 })();

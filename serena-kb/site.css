@@ -130,6 +130,22 @@
 .service-step-controls button{font-size:13px}
 .service-step-controls button:disabled{opacity:.4;cursor:default}
 .service-return{font-size:14px}
+.service-hardware{display:flex;flex-wrap:wrap;gap:7px;margin:16px 0}
+.service-hardware button{font-size:12px;text-align:left;padding:8px 10px}
+.service-hardware .tool-link{border-left:4px solid #1299cf}
+.service-hardware .fastener-link{border-left:4px solid #a348cf}
+#fastener-detail{width:min(850px,calc(100% - 24px));max-height:90dvh;box-sizing:border-box;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:22px;background:var(--paper,#fff);color:var(--ink)}
+#fastener-detail::backdrop{background:#17232b99}
+.fastener-toolbar{display:flex;justify-content:space-between;align-items:center;gap:14px;position:sticky;top:-22px;background:var(--paper,#fff);padding:10px 0;z-index:1}
+.fastener-toolbar label{display:grid;gap:4px;min-width:0;font-size:12px}
+.fastener-toolbar select{max-width:100%;width:360px}
+#fastener-detail h2{font-size:21px;margin-top:18px}
+#fastener-detail .image-card img{max-height:65dvh;width:100%;object-fit:contain}
+.fastener-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 24px;font-size:13px}
+.fastener-fields>div{border-bottom:1px solid var(--line);padding:10px 0}
+.fastener-fields dt{color:var(--muted)}
+.fastener-fields dd{margin:4px 0 0}
+@media(max-width:480px){#fastener-detail{padding:14px}.fastener-toolbar{top:-14px}.fastener-toolbar select{width:100%}.fastener-fields{grid-template-columns:1fr}#fastener-detail h2{font-size:18px}}
 .reader-offers{display:grid;gap:12px}
 .reader-offer{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;padding:14px 0;border-bottom:1px solid var(--line)}
 .reader-offer:last-child{border:0}
