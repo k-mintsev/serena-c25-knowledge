@@ -2,6 +2,7 @@
 (() => {
   'use strict';
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const vehicleName=db=>[db.vehicle.make,db.vehicle.model,db.vehicle.frame?.split('-')[0]].filter(Boolean).join(' ');
   let current=null,choice=0;
 
   function model(html,part=null) {
@@ -86,7 +87,7 @@
       ${relatedBody?material('repair-options','Что проверить и обсудить при ремонте',relatedBody):''}
       ${experiences.length?material('experience','Опыт владельцев и мастерских',experiences.map(e=>`<article class="reader-experience"><h3>${esc(e.title)}</h3><p>${esc(e.summary)}</p><p class="muted">${e.date?date(e.date)+' · ':''}${esc(e.model)}</p></article>`).join('')):''}
       ${explanation?.videoSourceIds?.length?material('videos','Видео изготовителя',`<ul>${explanation.videoSourceIds.map(id=>`<li>${current.sourceLink(id)}</li>`).join('')}</ul>`):''}
-      ${prices.length?material('prices','Детали и работа: где купить и сколько стоит',`${purchase.length?`<h3>Покупка деталей</h3>${priceRows(purchase)}<p class="reader-price-note">Для заказа сверить сторону и артикул по номеру кузова NC25-002639.</p>`:''}${labor.length?`<h3>Работы в сервисе</h3>${priceRows(labor)}`:''}<p class="reader-price-note">Рядом с каждой суммой — продавец или сервис и дата цены.</p>`):''}`;
+      ${prices.length?material('prices','Детали и работа: где купить и сколько стоит',`${purchase.length?`<h3>Покупка деталей</h3>${priceRows(purchase)}<p class="reader-price-note">Для заказа сверить сторону и артикул по номеру кузова ${esc(db.vehicle.frame)}.</p>`:''}${labor.length?`<h3>Работы в сервисе</h3>${priceRows(labor)}`:''}<p class="reader-price-note">Рядом с каждой суммой — продавец или сервис и дата цены.</p>`):''}`;
   }
   function sourcesContent(part) {
     const {db,media,photo,assets,sourceLink}=current;
@@ -122,7 +123,7 @@
     const page=helpers.pageSystem||db.systems.find(s=>s.id===part.system);
     const parts=helpers.pageParts||db.components.filter(p=>p.system===part.system);
     return `${mobilePicker(part,parts,db)}
-      <div class="reader-heading" id="description"><p class="reader-breadcrumb">Nissan Serena NC25 <span>/</span> ${esc(page.name)}${page.contextTitle?' / '+esc(page.contextTitle):''}</p><h1>${esc(part.name)}</h1><nav class="jumpnav" aria-label="На этой странице"><a href="#purpose">Назначение</a><a href="#appearance">Внешний вид</a><a href="#service">Снятие</a><a href="#my-car">Моя машина</a><a href="#materials">Материалы</a></nav></div>
+      <div class="reader-heading" id="description"><p class="reader-breadcrumb">${esc(vehicleName(db))} <span>/</span> ${esc(page.name)}${page.contextTitle?' / '+esc(page.contextTitle):''}</p><h1>${esc(part.name)}</h1><nav class="jumpnav" aria-label="На этой странице"><a href="#purpose">Назначение</a><a href="#appearance">Внешний вид</a><a href="#service">Снятие</a><a href="#my-car">Моя машина</a><a href="#materials">Материалы</a></nav></div>
       ${helpers.model}
       <section class="panel reader-section" id="purpose"><h2>Для чего нужен и как работает</h2><p>${esc(settings.summary||part.description)}</p>${helpers.mechanics?`<p>${esc(helpers.mechanics)}</p>`:''}${settings.usage?`<p>${esc(settings.usage)}</p>`:''}<p class="reader-connections">${esc(part.connections)}</p><div class="reader-related">${related.map(id=>{const p=db.components.find(p=>p.id===id);return `<a href="${esc(helpers.partRoute(id))}">${esc(p.name)} ↗</a>`;}).join('')}</div></section>
       <section class="panel reader-section" id="appearance"><h2>Внешний вид</h2>${settings.appearance.length>1?`<div class="reader-gallery-tabs" role="tablist" aria-label="Изображения узла">${settings.appearance.map((entry,i)=>`<button role="tab" id="reader-tab-${i}" data-reader-image="${i}" aria-selected="${i===0}" aria-controls="reader-gallery-content" tabindex="${i===0?0:-1}">${esc(entry.label)}</button>`).join('')}</div>`:''}<div id="reader-gallery-content" ${settings.appearance.length>1?'role="tabpanel" aria-labelledby="reader-tab-0"':''}>${galleryContent()}</div></section>
@@ -152,5 +153,5 @@
     const next=event.key==='ArrowRight'?(i+1)%count:event.key==='ArrowLeft'?(i+count-1)%count:event.key==='Home'?0:event.key==='End'?count-1:null;
     if(next!==null){event.preventDefault();choose(next,true);}
   });
-  globalThis.SerenaReader={render,model};
+  globalThis.SerenaReader={render,model,vehicleName};
 })();
