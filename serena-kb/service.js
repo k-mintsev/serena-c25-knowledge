@@ -6,11 +6,12 @@
   const stepChoice=new Map();
   const procedure=db=>(db.service.procedures||[]).find(p=>p.id===new URLSearchParams(location.hash.slice(1)).get('procedure'));
   function stepText(value) {
-    const text=String(value),pattern=/\[([^\]]+)\]\((part|procedure):([a-z0-9-]+)\)/g;
+    const text=String(value),pattern=/\[([^\]]+)\]\((part|procedure|fastener):([A-Za-z0-9-]+)\)/g;
     let result='',offset=0;
     for(const match of text.matchAll(pattern)) {
       result+=esc(text.slice(offset,match.index));
-      if(match[2]==='part')result+=partLink(match[3],match[1]);
+      if(match[2]==='fastener')result+=`<button class="service-reference" data-fastener="${esc(match[3])}">${esc(match[1])}</button>`;
+      else if(match[2]==='part')result+=partLink(match[3],match[1]);
       else result+=`<a href="#part=${esc(current.part.id)}&amp;procedure=${esc(match[3])}">${esc(match[1])}</a>`;
       offset=match.index+match[0].length;
     }
@@ -56,9 +57,11 @@
     document.getElementById('fastener-detail')?.remove();
     const entry=library.entries.find(e=>e.id===id),dialog=document.createElement('dialog');dialog.id='fastener-detail';
     const factory=entry?.factory;
+    const tooling=entry?.tooling;
+    const toolLinks=tooling?`<p>Инструмент: ${tooling.toolAssetIds.map(tid=>`<button data-fastener="${esc(tid)}">${esc(tid+' · '+library.entries.find(e=>e.id===tid).title)}</button>`).join(' + ')}.</p><p>Размер головки: ${esc(tooling.socketSizeMm==null?'не подтверждён':tooling.socketSizeMm+' мм')}.</p>`:'';
     const fields=entry?.kind==='tool'?[['Роль','Инструмент / оснастка'],['Размер / привод',null],['Выбранная модель',null]]:factory?[['Обозначение резьбы',factory.designation],['Диаметр, мм',factory.diameterMm],['Шаг, мм',factory.pitchMm],['Длина, мм',factory.lengthMm],['Класс прочности',factory.strengthClass],['Номер детали',factory.partNumber],['Затяжка, Н·м',factory.torqueNm]]:[];
     dialog.setAttribute('aria-labelledby','fastener-heading');
-    dialog.innerHTML=`<div class="fastener-toolbar"><button data-close-fastener>Закрыть</button><label>Деталь <select id="fastener-select"><option value="wall">Общий стенд</option>${library.entries.map(e=>`<option value="${esc(e.id)}" ${id===e.id?'selected':''}>${esc(e.id+' · '+e.title)}</option>`).join('')}</select></label></div><h2 id="fastener-heading">${esc(entry?entry.id+' · '+entry.title:'Крепежи и инструменты — стенд')}</h2>${current.photo(current.media.service[entry?.imageId||library.wallImageId],entry?.title||'Стенд крепежей',entry?.status||'На стенде показаны общие модели; масштабы карточек различаются.')}${entry?`<p>${esc(entry.description)}</p><dl class="fastener-fields">${fields.map(([label,value])=>`<div><dt>${esc(label)}</dt><dd>${esc(value??'Не подтверждено')}</dd></div>`).join('')}</dl>`:''}`;
+    dialog.innerHTML=`<div class="fastener-toolbar"><button data-close-fastener>Закрыть</button><label>Деталь <select id="fastener-select"><option value="wall">Общий стенд</option>${library.entries.map(e=>`<option value="${esc(e.id)}" ${id===e.id?'selected':''}>${esc(e.id+' · '+e.title)}</option>`).join('')}</select></label></div><h2 id="fastener-heading">${esc(entry?entry.id+' · '+entry.title:'Крепежи и инструменты — стенд')}</h2>${current.photo(current.media.service[entry?.imageId||library.wallImageId],entry?.title||'Стенд крепежей',entry?.status||'На стенде показаны общие модели; масштабы карточек различаются.')}${entry?`<p>${esc(entry.description)}</p>${toolLinks}<dl class="fastener-fields">${fields.map(([label,value])=>`<div><dt>${esc(label)}</dt><dd>${esc(value??'Не подтверждено')}</dd></div>`).join('')}</dl>`:''}`;
     document.body.append(dialog);dialog.addEventListener('close',()=>dialog.remove());dialog.showModal();
   }
   function order(guide,operations,mode=phase) {
