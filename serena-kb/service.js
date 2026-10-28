@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  let phase='removal',guideChoice=null,current=null;
+  let phase='removal',guideChoice=null,current=null,activeGuide=null,activeOperations=[];
   const stepChoice=new Map();
   const procedure=db=>(db.service.procedures||[]).find(p=>p.id===new URLSearchParams(location.hash.slice(1)).get('procedure'));
   function stepText(value) {
@@ -23,21 +23,26 @@
     return `<a href="${esc(SerenaData.routes[page]+'#part='+id)}">${esc(label||part.name)} ↗</a>`;
   }
   function renderPhotoSteps(guide,operations,photo,media) {
-    const index=Math.min(stepChoice.get(guide.id+phase)||0,operations.length-1);
+    activeGuide=guide;activeOperations=operations;
+    const hasOverview=phase==='removal'&&guide.overview?.imageId;
+    const index=Math.max(hasOverview?-1:0,Math.min(stepChoice.get(guide.id+phase)??(hasOverview?-1:0),operations.length-1));
     const title=op=>op[phase+'Title']||op.title;
     const prerequisites=guide.prerequisites||[];
+    const overview=guide.overview;
+    const legend=()=>`<ul class="service-role-legend" aria-label="Цвета схемы">${[['context','Окружение'],['related','Связанные детали'],['active','Текущий объект'],['fastener','Крепёж']].map(([role,label])=>`<li><span class="service-role-${role}" aria-hidden="true"></span>${label}</li>`).join('')}</ul>`;
     return `<section class="panel reader-section service-panel" id="service" data-guide="${esc(guide.id)}" data-ready="${guide.readyForWork}" data-phase="${phase}">
       <h2>${esc(guide.sectionTitle||'Снятие и установка')}</h2>${guide.returnHref?`<p><a href="${esc(guide.returnHref)}">← Вернуться к узлу: ${esc(current.part.name)}</a></p>`:''}<p class="reader-service-caption">${esc(guide.photoCaption||guide.title)}</p>
-      ${phase==='removal'&&guide.preparation?.length?`<div class="service-preparation"><h3>До начала</h3><ol>${guide.preparation.map(t=>`<li>${stepText(t)}</li>`).join('')}</ol></div>`:''}
-      ${phase==='removal'&&prerequisites.length?`<div class="service-prerequisites"><h3>Перед началом</h3><ul>${prerequisites.map(p=>`<li>${p.partId?partLink(p.partId,p.title):esc(p.title)}${p.detail?`<span>${esc(p.detail)}</span>`:''}</li>`).join('')}</ul></div>`:''}
       <div class="service-phases" role="group" aria-label="Этап работ"><button data-service-phase="removal" aria-pressed="${phase==='removal'}">Снятие</button><button data-service-phase="installation" aria-pressed="${phase==='installation'}">Установка</button></div>
-      <nav class="service-photo-route" aria-label="Шаги инструкции">${operations.map((op,i)=>`<button data-service-index="${i}" aria-current="${index===i?'step':'false'}"><span>${i+1}</span>${esc(title(op))}</button>`).join('')}</nav>
+      <nav class="service-photo-route" aria-label="Шаги инструкции">${hasOverview?`<button data-service-index="-1" aria-current="${index===-1?'step':'false'}">На автомобиле</button>`:''}${operations.map((op,i)=>`<button data-service-index="${i}" aria-current="${index===i?'step':'false'}"><span>${i+1}</span>${esc(title(op))}</button>`).join('')}</nav>
+      ${hasOverview?`<article class="reader-service-overview" data-service-overview ${index===-1?'':'hidden'}><p class="service-step-count">Расположение до подготовки доступа</p><h3>${esc(overview.title)}</h3>${collisionNotice(overview.imageId,media)}${photo(media.service[overview.imageId],overview.title,overview.caption)}${legend()}${(overview.description||[]).map(text=>`<p>${stepText(text)}</p>`).join('')}</article>`:''}
+      ${phase==='removal'&&guide.preparation?.length?`<div class="service-preparation"><h3>Подготовить доступ</h3><ol>${guide.preparation.map(t=>`<li>${stepText(t)}</li>`).join('')}</ol></div>`:''}
+      ${phase==='removal'&&prerequisites.length?`<div class="service-prerequisites"><h3>Перед началом</h3><ul>${prerequisites.map(p=>`<li>${p.partId?partLink(p.partId,p.title):esc(p.title)}${p.detail?`<span>${esc(p.detail)}</span>`:''}</li>`).join('')}</ul></div>`:''}
       ${operations.map((op,i)=>{
         const imageId=op[phase+'ImageId']||op.imageId;
-        return `<article class="reader-service-card" tabindex="-1" id="service-op-${op.id}" data-operation="${op.id}" ${index===i?'':'hidden'}><p class="service-step-count">Шаг ${i+1} из ${operations.length}</p><h3>${esc(title(op))}</h3>${collisionNotice(imageId,media)}${imageId?photo(media.service[imageId],title(op),op[phase+'Caption']||op.imageCaption||'Иллюстрация по материалу источника.'):''}<ol>${(op[phase+'Display']||op[phase]).map(t=>`<li>${stepText(t)}</li>`).join('')}</ol>${hardwareLinks(op)}${phase==='installation'&&op.returnParts?.length?`<p class="service-return">Вернуть на место: ${op.returnParts.map(id=>partLink(id)).join(' · ')}</p>`:''}</article>`;
+        return `<article class="reader-service-card" tabindex="-1" id="service-op-${op.id}" data-operation="${op.id}" ${index===i?'':'hidden'}><p class="service-step-count">Шаг ${i+1} из ${operations.length}</p><h3>${esc(title(op))}</h3>${collisionNotice(imageId,media)}${imageId?photo(media.service[imageId],title(op),op[phase+'Caption']||op.imageCaption||'Иллюстрация по материалу источника.'):''}${imageId&&op.presentationRoles?legend():''}<ol>${(op[phase+'Display']||op[phase]).map(t=>`<li>${stepText(t)}</li>`).join('')}</ol>${hardwareLinks(op)}${phase==='installation'&&op.returnParts?.length?`<p class="service-return">Вернуть на место: ${op.returnParts.map(id=>partLink(id)).join(' · ')}</p>`:''}</article>`;
       }).join('')}
       ${phase==='installation'&&index===operations.length-1&&guide.completion?.length?`<div class="service-completion"><h3>Завершение</h3><ol>${guide.completion.map(t=>`<li>${stepText(t)}</li>`).join('')}</ol></div>`:''}
-      <div class="service-step-controls"><button data-service-index="${index-1}" ${index===0?'disabled':''}>← Назад</button><span>${index+1} / ${operations.length}</span><button class="primary" data-service-index="${index+1}" ${index===operations.length-1?'disabled':''}>Далее →</button></div>
+      <div class="service-step-controls"><button data-service-index="${index-1}" ${index===(hasOverview?-1:0)?'disabled':''}>← Назад</button><span>${index===-1?'Обзор':`${index+1} / ${operations.length}`}</span><button class="primary" data-service-index="${index+1}" ${index===operations.length-1?'disabled':''}>Далее →</button></div>
     </section>`;
   }
   function hardwareLinks(op) {
@@ -101,7 +106,7 @@
     const hardware=event.target.closest('[data-fastener]');
     if(hardware){openHardware(hardware.dataset.fastener);return;}
     const step=event.target.closest('[data-service-index]');
-    if(step&&current){const index=Number(step.dataset.serviceIndex),guide=current.db.service.guides.find(g=>g.id===guideChoice);if(guide&&index>=0&&index<order(guide,current.db.service.operations).length){stepChoice.set(guide.id+phase,index);refresh();}return;}
+    if(step&&current&&activeGuide){const index=Number(step.dataset.serviceIndex);if(index>=(phase==='removal'&&activeGuide.overview?-1:0)&&index<activeOperations.length){stepChoice.set(activeGuide.id+phase,index);refresh();}return;}
     const phaseButton=event.target.closest('[data-service-phase]');
     if(phaseButton){phase=phaseButton.dataset.servicePhase;refresh();return;}
     const jump=event.target.closest('[data-service-jump]');
