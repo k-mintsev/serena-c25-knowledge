@@ -51,7 +51,8 @@
     const entry=current.settings.appearance[choice];
     if(!entry)return '<p class="reader-empty"><a href="#motion">Посмотреть расположение на автомобиле ↑</a></p>';
     const asset=current.assets.find(a=>a.id===entry.visualId);
-    return image(asset,entry.title,entry.caption);
+    const attribution=asset.sourceUrl?`<p class="reader-photo-source"><a href="${esc(asset.sourceUrl)}" target="_blank" rel="noopener noreferrer">Источник фотографии ↗</a></p>`:'';
+    return image(asset,entry.title,entry.caption||asset.caption)+attribution;
   }
   const bullets=items=>`<ul>${items.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`;
   const material=(id,title,body)=>`<details class="reader-material" id="${id}"><summary>${esc(title)}</summary><div class="reader-material-body">${body}</div></details>`;
@@ -60,7 +61,7 @@
     const preference=['source-photo','product-photo','annotated-photo','manufacturer-illustration','catalog-diagram'];
     const candidates=assets.filter(a=>a.uses[part.id].some(role=>['overall','installed','removed'].includes(role)));
     const appearance=(candidates.length?candidates:assets.filter(a=>a.uses[part.id].includes('reference'))).sort((a,b)=>preference.indexOf(a.kind)-preference.indexOf(b.kind));
-    const entries=appearance.map((a,i)=>({visualId:a.id,label:labels[a.kind]||'Изображение',title:a.title,caption:part.presentation?.imageCaptions?.[a.id]||`${labels[a.kind]||'Иллюстрация'}${a.kind==='source-photo'?' · из внешнего материала':''}.`}));
+    const entries=appearance.map((a,i)=>({visualId:a.id,label:labels[a.kind]||'Изображение',title:a.title,caption:part.presentation?.imageCaptions?.[a.id]||a.caption||`${labels[a.kind]||'Иллюстрация'}${a.kind==='source-photo'?' · из внешнего материала':''}.`}));
     const totals=new Map();entries.forEach(e=>totals.set(e.label,(totals.get(e.label)||0)+1));
     const repeated=new Map();entries.forEach(e=>{const n=(repeated.get(e.label)||0)+1;repeated.set(e.label,n);if(totals.get(e.label)>1)e.label+=' '+n;});
     return {...part.presentation,appearance:part.presentation?.appearance||entries};
@@ -100,7 +101,7 @@
     const shown=new Set(originals.map(a=>media[a.mediaGroup]?.[a.mediaKey]).map(r=>typeof r==='string'?r:r?.data));
     const extra=[...new Set(ops.flatMap(op=>op.originalImageIds))].filter(id=>!shown.has(media.service[id]));
     const events=db.events.filter(e=>e.components.includes(part.id)&&e.quote);
-    return `${originals.length||extra.length?`<h3>Реальные фотографии</h3>${originals.map(a=>image(a,a.title,'Оригинальное изображение из внешнего материала.')).join('')}${extra.map(id=>photo(media.service[id],'Исходная фотография','Оригинал материала по этому узлу.')).join('')}`:''}
+    return `${originals.length||extra.length?`<h3>Реальные фотографии</h3>${originals.map(a=>image(a,a.title,a.caption||'Оригинальное изображение из внешнего материала.')).join('')}${extra.map(id=>photo(media.service[id],'Исходная фотография','Оригинал материала по этому узлу.')).join('')}`:''}
       ${diagrams.length?`<h3>Схемы и каталоги</h3>${diagrams.map(a=>image(a,a.title,a.kind==='manufacturer-illustration'?'Материал изготовителя.':'Каталожный материал; подбор детали — по номеру кузова.')).join('')}`:''}
       <h3>Статьи и инструкции</h3><ul>${[...ids].filter(id=>id!=='quote').map(id=>`<li>${sourceLink(id)}</li>`).join('')}${assets.filter(a=>a.sourceUrl&&![...ids].some(id=>db.sources[id]?.url===a.sourceUrl)).map(a=>`<li><a href="${esc(a.sourceUrl)}" target="_blank" rel="noopener noreferrer">${esc(a.title)}</a></li>`).join('')}${experiences.filter(e=>![...ids].some(id=>db.sources[id]?.url===e.url)).map(e=>`<li><a href="${esc(e.url)}" target="_blank" rel="noopener noreferrer">${esc(e.title)}</a></li>`).join('')}</ul>
       ${events.length?`<h3>Мои обращения</h3>${events.map(e=>`<blockquote>${esc(e.quote)}</blockquote>`).join('')}`:''}
