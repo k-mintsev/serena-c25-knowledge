@@ -80,14 +80,14 @@
     return mode==='installation'?guide.installationOrder.map(id=>byId.get(id)):result;
   }
   function operationsFor(part,db) {
-    const selected=procedure(db);if(selected)return selected.operationIds.map(id=>db.service.operations.find(op=>op.id===id));
+    const selected=procedure(db);if(selected)return (phase==='installation'&&selected.installationOrder||selected.operationIds).map(id=>db.service.operations.find(op=>op.id===id));
     const ids=new Set();
     return db.service.guides.filter(g=>part.serviceGuideIds.includes(g.id)).flatMap(g=>order(g,db.service.operations,'removal')).filter(op=>{if(ids.has(op.id))return false;ids.add(op.id);return true;});
   }
   function render(part,db,media,photo,sourceLink) {
     current={part,db,media,photo,sourceLink};
     const selected=procedure(db);
-    if(selected)return renderPhotoSteps({...selected,sectionTitle:selected.title,returnHref:'#part='+part.id,readyForWork:false},selected.operationIds.map(id=>db.service.operations.find(op=>op.id===id)),photo,media);
+    if(selected)return renderPhotoSteps({...selected,sectionTitle:selected.title,returnHref:'#part='+part.id,readyForWork:false},(phase==='installation'&&selected.installationOrder||selected.operationIds).map(id=>db.service.operations.find(op=>op.id===id)),photo,media);
     const guides=(db.service?.guides||[]).filter(g=>part.serviceGuideIds?.includes(g.id));
     if(!guides.length){
       const group=db.assemblies.find(a=>a.id===part.assemblyId);
