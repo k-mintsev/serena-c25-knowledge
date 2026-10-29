@@ -1,4 +1,4 @@
-/* The three views render the same solved pose. Data lives in docs/serena-vehicle-kb.json. */
+/* The three views render the same solved pose. Data lives in data/serena-vehicle-kb.json. */
 (() => {
   'use strict';
   const {db,media,routes}=SerenaData;

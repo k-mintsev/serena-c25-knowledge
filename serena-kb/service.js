@@ -1,4 +1,4 @@
-/* Canonical operations and image paths belong to docs/serena-vehicle-kb.json. */
+/* Canonical operations and image paths belong to data/serena-vehicle-kb.json. */
 (() => {
   'use strict';
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
