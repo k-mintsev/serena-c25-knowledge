@@ -158,6 +158,10 @@
 .reader-offers{display:grid;gap:12px}
 .reader-offer{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;padding:14px 0;border-bottom:1px solid var(--line)}
 .reader-offer:last-child{border:0}
+.assembly-parts>.assembly-group{margin:7px 0 7px 10px;border-left:2px solid var(--line);padding-left:8px}
+.assembly-parts>.part-link{padding-left:calc(8px + var(--part-depth,0)*12px)}
+.reader-placeholder-label{display:inline-block;font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:5px 9px;margin-top:12px}
+.reader-composition .reader-related{display:grid;gap:10px}
 .reader-offer h4{font-size:14px;margin-bottom:6px}
 .reader-offer a{font-size:13px}
 .reader-offer p{font-size:12px;color:var(--muted);margin:6px 0 0}

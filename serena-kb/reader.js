@@ -77,8 +77,8 @@
   }
   function mobilePicker(part,parts,db) {
     if(parts.length<=1)return '';
-    const ids=new Set(parts.map(p=>p.id));
-    return `<div class="mobile-picker"><button data-prev aria-label="Предыдущая деталь">‹</button><select id="part-picker" aria-label="Выберите деталь">${db.assemblies.map(a=>{const members=[a.root,...a.children].filter(id=>ids.has(id));return members.length?`<optgroup label="${esc(a.name)}">${members.map(id=>{const p=parts.find(p=>p.id===id);return `<option value="${id}" ${id===part.id?'selected':''}>${esc(p.name)}</option>`;}).join('')}</optgroup>`:'';}).join('')}</select><button data-next aria-label="Следующая деталь">›</button></div>`;
+    const tree=current.hierarchy.ordered(parts);
+    return `<div class="mobile-picker"><button data-prev aria-label="Предыдущая деталь">‹</button><select id="part-picker" aria-label="Выберите деталь">${tree.map(({group,rows})=>`<optgroup label="${esc(group.name)}">${rows.map(({part:p,depth})=>`<option value="${p.id}" ${p.id===part.id?'selected':''}>${'\u00a0\u00a0'.repeat(depth)}${esc(p.name)}</option>`).join('')}</optgroup>`).join('')}</select><button data-next aria-label="Следующая деталь">›</button></div>`;
   }
   function ownerContent(part) {
     const {db,media,photo}=current,events=db.events.filter(e=>e.components.includes(part.id));
@@ -129,9 +129,14 @@
     const settings=settingsFor(part,assets);
     current={part,db,media,...helpers,assets,settings};choice=0;
     const group=db.assemblies.find(a=>a.id===part.assemblyId);
-    const related=[group.root,...group.children].filter(id=>id!==part.id);
+    const related=helpers.hierarchy.related(part).map(p=>p.id);
     const page=helpers.pageSystem||db.systems.find(s=>s.id===part.system);
     const parts=helpers.pageParts||db.components.filter(p=>p.system===part.system);
+    const parentLinks=helpers.hierarchy.ancestors(part).map(p=>`<a href="${esc(helpers.partRoute(p.id))}">${esc(p.name)}</a>`).join(' <span>/</span> ');
+    if(part.contentStatus==='placeholder'){
+      const children=helpers.hierarchy.children(part);
+      return `${mobilePicker(part,parts,db)}<div class="reader-heading" id="description"><p class="reader-breadcrumb">${esc(vehicleName(db))} <span>/</span> ${esc(page.name)}${parentLinks?' <span>/</span> '+parentLinks:''}</p><h1>${esc(part.name)}</h1><p class="reader-placeholder-label">Карточка-заготовка</p></div><section class="panel reader-section reader-composition" id="purpose"><h2>${children.length?'Состав группы':'В составе группы'}</h2>${children.length?`<div class="reader-related">${children.map(p=>`<a href="${esc(helpers.partRoute(p.id))}">${esc(p.name)} →</a>`).join('')}</div>`:`<p>${part.parentId?`<a href="${esc(helpers.partRoute(part.parentId))}">${esc(db.components.find(p=>p.id===part.parentId).name)} ↑</a>`:esc(group.name)}</p>`}${group.relatedPartIds?.length?`<div class="reader-related">${group.relatedPartIds.map(id=>`<a href="${esc(helpers.partRoute(id))}">${esc(db.components.find(p=>p.id===id).name)} ↗</a>`).join('')}</div>`:''}</section>`;
+    }
     return `${mobilePicker(part,parts,db)}
       <div class="reader-heading" id="description"><p class="reader-breadcrumb">${esc(vehicleName(db))} <span>/</span> ${esc(page.name)}${page.contextTitle?' / '+esc(page.contextTitle):''}</p><h1>${esc(part.name)}</h1><nav class="jumpnav" aria-label="На этой странице"><a href="#purpose">Назначение</a><a href="#appearance">Внешний вид</a><a href="#service">Снятие</a><a href="#my-car">Моя машина</a><a href="#materials">Материалы</a></nav></div>
       ${helpers.model}

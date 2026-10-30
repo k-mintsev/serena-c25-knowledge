@@ -4,9 +4,10 @@
   const {db,media,routes}=SerenaData;
   const pageKind=document.body.dataset.page;
   const byId = Object.fromEntries(db.components.map(p => [p.id, p]));
+  const hierarchy=SerenaHierarchy.create(db);
   const pageSystem=db.systems.find(s=>s.id===pageKind);
   const isContextPage=pageSystem?.status==='partial';
-  const pageParts=()=>isContextPage?(pageSystem.contextParts||[]).map(id=>byId[id]).filter(Boolean):db.components.filter(p=>p.system===pageKind);
+  const pageParts=()=>hierarchy.pageParts(pageKind);
   const belongsToPage=id=>!!byId[id]&&(byId[id].system===pageKind||(isContextPage&&pageSystem.contextParts?.includes(id)));
   const partRoute=id=>routes[db.systems.find(s=>s.status==='partial'&&s.contextParts?.includes(id))?.id||byId[id].system]+'#part='+id;
   const views = {front:'Спереди',side:'Сбоку · левая сторона',top:'Сверху'};
@@ -104,23 +105,25 @@
     $('systems').innerHTML=`<a class="system ${pageKind==='vehicle'?'active':''}" data-whole-vehicle href="${routes.vehicle}">Автомобиль<small>Все узлы в одной сцене</small></a>`+db.systems.map(s=>`<a class="system ${s.id===pageKind?'active':''}" data-system="${s.id}" href="${routes[s.id]}" ${s.id===pageKind?'aria-current="page"':''}>${esc(s.name)}${s.status==='future'?'<small>Раздел для будущих материалов</small>':s.status==='partial'?`<small>${esc(s.contextTitle)}</small>`:''}</a>`).join('');
     if(pageKind==='vehicle'){
       $('list-title').textContent='Системы автомобиля';
-      $('part-list').innerHTML=db.systems.map(s=>`<a class="part-link system-shortcut" href="${routes[s.id]}">${esc(s.name)}<small>${s.status==='partial'?(s.contextParts||[]).length:db.components.filter(p=>p.system===s.id).length||'в будущем'}</small></a>`).join('');return;
+      $('part-list').innerHTML=db.systems.map(s=>`<a class="part-link system-shortcut" href="${routes[s.id]}">${esc(s.name)}<small>${hierarchy.pageParts(s.id).length||'в будущем'}</small></a>`).join('');return;
     }
-    if(isContextPage){
-      $('list-title').textContent=pageSystem.name;
-      $('part-list').innerHTML=`<h3 class="context-group-title">${esc(pageSystem.contextTitle)}</h3>`+pageParts().map(p=>`<button class="part-link ${p.id===selected?'active':''}" data-select="${p.id}" ${p.id===selected?'aria-current="true"':''}><span class="num">${p.number}</span><span>${esc(p.name)}</span></button>`).join('');return;
+    const parts=pageParts(),groups=hierarchy.groupsFor(parts);
+    $('list-title').textContent=pageSystem.name;
+    function groupIds(group) {
+      return [...hierarchy.members(group,parts).map(p=>p.id),...hierarchy.subgroups(group,groups).flatMap(groupIds)];
     }
-    const groups=db.assemblies.filter(a=>a.system===system);
-    $('list-title').textContent=db.systems.find(s=>s.id===system).name;
-    const item=(id,root=false)=>{const p=byId[id];return `<button class="part-link ${p.id===selected?'active':''} ${root?'assembly-root':p.parentId?'assembly-child':'assembly-sibling'}" data-select="${p.id}" ${p.id===selected?'aria-current="true"':''}><span class="num">${p.number}</span><span>${esc(p.name)}</span></button>`;};
-    $('part-list').innerHTML=groups.length?groups.map(a=>`<details class="assembly-group" data-assembly="${a.id}" ${byId[selected].assemblyId===a.id?'open':''}><summary>${esc(a.name)}<small>${1+a.children.length}</small></summary><div class="assembly-parts">${item(a.root,true)}${a.children.map(id=>item(id)).join('')}</div></details>`).join(''):'<p class="muted">Узел зарезервирован в единой модели; карточки добавятся по мере исследования.</p>';
+    function groupTree(group) {
+      const rows=hierarchy.rows(group,parts),nested=hierarchy.subgroups(group,groups),ids=groupIds(group);
+      return `<details class="assembly-group" data-assembly="${esc(group.id)}" ${ids.includes(selected)?'open':''}><summary>${esc(group.name)}<small>${ids.length}</small></summary><div class="assembly-parts">${rows.map(({part:p,depth})=>`<button class="part-link ${p.id===selected?'active':''} ${p.id===group.root?'assembly-root':p.parentId?'assembly-child':'assembly-sibling'}" style="--part-depth:${depth}" data-select="${p.id}" ${p.id===selected?'aria-current="true"':''}><span class="num">${p.number}</span><span>${esc(p.name)}</span></button>`).join('')}${nested.map(groupTree).join('')}</div></details>`;
+    }
+    $('part-list').innerHTML=hierarchy.roots(groups).map(groupTree).join('');
   }
   function renderCard() {
     imageMap=new Map();imageCounter=0;
     document.body.classList.add('reader-page');renderNavigation();
     const p=byId[selected];
-    $('main').innerHTML=SerenaReader.render(p,db,media,{photo,sourceLink,fmt,date,model:SerenaReader.model(modelPanel(),p),mechanics:mechanics[p.id],pageSystem,pageParts:pageParts(),partRoute});
-    setupModelControls();
+    $('main').innerHTML=SerenaReader.render(p,db,media,{photo,sourceLink,fmt,date,hierarchy,model:p.contentStatus==='placeholder'?'':SerenaReader.model(modelPanel(),p),mechanics:mechanics[p.id],pageSystem,pageParts:pageParts(),partRoute});
+    if($('motion'))setupModelControls();
     if(p.explanation?.diagram)SerenaSealDiagram.mount($('seal-cutaway'),p.explanation.diagram);
     refreshScene();draw();
   }
@@ -144,7 +147,7 @@
     setupModelControls();refreshScene();draw();
   }
 
-  function refreshScene(){vehicle=sim.snapshot();scene=vehicle.axles[byId[selected].system];}
+  function refreshScene(){vehicle=sim.snapshot();scene=vehicle.axles[byId[selected].system]||vehicle.axles.front;}
   function syncDrivetrain(){
     sim.step(0,{...sim.inputs,rack,...drivetrainInputs,drive:scenario==='drive'?driveTempo:0});
     if($('drive-ratio')){
@@ -225,7 +228,7 @@
     const preview=e.target.closest('.view-preview');if(preview){setView(preview.dataset.view);return;}
     const viewButton=e.target.closest('[data-view]');if(viewButton){setView(viewButton.dataset.view);return;}
     const part=e.target.closest('[data-part],[data-select]');if(part){selectPart(part.dataset.part||part.dataset.select);return;}
-    if(e.target.closest('[data-prev],[data-next]')){const parts=pageParts(),index=parts.findIndex(p=>p.id===selected);selectPart(parts[(index+(e.target.closest('[data-prev]')?-1:1)+parts.length)%parts.length].id);return;}
+    if(e.target.closest('[data-prev],[data-next]')){const parts=hierarchy.ordered(pageParts()).flatMap(group=>group.rows.map(row=>row.part)),index=parts.findIndex(p=>p.id===selected);selectPart(parts[(index+(e.target.closest('[data-prev]')?-1:1)+parts.length)%parts.length].id);return;}
     if(e.target.id==='play')togglePlay();
     if(e.target.id==='overview'){isolated=!isolated;e.target.textContent=isolated?'Показать все узлы':'Выделить деталь';e.target.setAttribute('aria-pressed',String(!isolated));draw();}
     if(e.target.id==='hide-part'){hiddenParts.add($('mask-part').value);draw();}
@@ -268,7 +271,7 @@
   if(pageKind==='vehicle'&&byId[initial]){location.replace(partRoute(initial)+(initialParams.get('procedure')?'&procedure='+encodeURIComponent(initialParams.get('procedure')):''));return;}
   try{initial=initial||localStorage.getItem('serena-kb-part-'+pageKind)||localStorage.getItem('serena-kb-part');}catch{}
   if(pageKind==='vehicle'){
-    selected=byId[initial]?initial:'a1';system=byId[selected].system;scope='vehicle';view='side';isolated=false;renderHome();
+    selected=byId[initial]&&byId[initial].contentStatus!=='placeholder'?initial:'a1';system=byId[selected].system;scope='vehicle';view='side';isolated=false;renderHome();
   }else if(db.systems.find(s=>s.id===pageKind)?.status==='future'){
     system=pageKind;selected=db.systems.find(s=>s.id===pageKind).contextParts?.[0]||'a1';renderCard();
   }else{
