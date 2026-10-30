@@ -4,9 +4,10 @@
  */
 (function(root,factory){
   const base=typeof module==='object'&&module.exports?require('./serena-kb-model.js'):root.SerenaModel;
-  const api=factory(base);Object.assign(base,api);
+  const drive=typeof module==='object'&&module.exports?require('./serena-kb-drivetrain.js'):root.SerenaDrivetrain;
+  const api=factory(base,drive);Object.assign(base,api);
   if(typeof module==='object'&&module.exports)module.exports=base;
-})(typeof globalThis!=='undefined'?globalThis:this,function(base){
+})(typeof globalThis!=='undefined'?globalThis:this,function(base,drive){
   'use strict';
   const V=(x,y,z)=>({x,y,z}),add=(a,b)=>V(a.x+b.x,a.y+b.y,a.z+b.z);
   const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -67,9 +68,10 @@
       floor:[V(2.10,-1.38,.59),V(2.10,1.38,.59),V(-2.30,1.38,.59),V(-2.30,-1.38,.59)].map(point),
       shellConfidence:'approximate-one-box-shape',measuredDimensions:null};
   }
-  function VehicleSimulation(options={}){this.params={spring:1,damping:1,antiroll:1};this.setParameters(options);this.reset();}
+  function VehicleSimulation(options={}){this.params={spring:1,damping:1,antiroll:1};this.drivetrain=new drive.Drivetrain(options.drivetrain);this.setParameters(options);this.reset();}
   VehicleSimulation.prototype.setParameters=base.Simulation.prototype.setParameters;
   VehicleSimulation.prototype.reset=function(){
+    this.drivetrain.reset();
     this.body={heave:0,roll:0,pitch:0,v:0,vr:0,vp:0};
     this.corners=Object.fromEntries(corners.map(c=>[c.id,{zu:0,vu:0,forces:{spring:0,damper:0,antiroll:0,bumpStop:0,tire:0,body:0}}]));
     this.time=0;this.drivePhase=0;this.inputs={roadFL:0,roadFR:0,roadRL:0,roadRR:0,rack:0,drive:0};return this;
@@ -97,10 +99,13 @@
       b.heave+=h*b.v;b.roll+=h*b.vr;b.pitch+=h*b.vp;
       for(const c of corners){const w=this.corners[c.id];w.vu+=h*(w.forces.tire-w.forces.body)/.12;w.zu+=h*w.vu;}
       this.time+=h;this.drivePhase+=h*i.drive;
-    }return this;
+    }
+    const front=base.solvePose('front',{rack:i.rack});
+    this.drivetrain.step(dt,inputs,{left:front.wheels.L.steer,right:front.wheels.R.steer});
+    return this;
   };
   VehicleSimulation.prototype.snapshot=function(){
-    const b=this.body,axles={};
+    const b=this.body,axles={},drivetrain=this.drivetrain.snapshot();
     for(const axle of ['front','rear']){
       const prefix=axle==='front'?'F':'R',x=axle==='front'?1.5:-1.5;
       const values={};
@@ -114,12 +119,17 @@
       for(const side of ['L','R']){
         const c=corners.find(c=>c.id===prefix+side),w=this.corners[c.id],out=scene.wheels[side];
         out.compression=values['travel'+side];out.velocity=w.vu-(b.v+x*b.vp+c.y*b.vr);
-        out.bodyVelocity=b.v+x*b.vp+c.y*b.vr;out.forces={...w.forces};out.rotation=this.drivePhase;
+        out.bodyVelocity=b.v+x*b.vp+c.y*b.vr;out.forces={...w.forces};out.rotation=drivetrain.phases[prefix+side];
       }
       axles[axle]=scene;
     }
-    return {id:'serena-nc25-whole-vehicle',units:'normalized',time:this.time,axles,body:bodyGeometry(b,axles),
-      nodes:[{id:'body',parent:null},{id:'front',parent:'body'},{id:'rear',parent:'body'},{id:'engine',parent:'body',status:'reserved'},{id:'cvt',parent:'engine',status:'reserved'},{id:'driveline',parent:'body',status:'context'}],
+    const midpoint=(a,b)=>V((a.x+b.x)/2,(a.y+b.y)/2,(a.z+b.z)/2);
+    drivetrain.geometry={primary:bodyTransform(V(1.85,.32,.65),b),secondary:bodyTransform(V(1.23,.32,.65),b),
+      frontDifferential:midpoint(axles.front.wheels.L.points.cvInner,axles.front.wheels.R.points.cvInner),
+      rearDifferential:midpoint(axles.rear.wheels.L.points.cvInner,axles.rear.wheels.R.points.cvInner),
+      frontOutputs:['L','R'].map(s=>axles.front.wheels[s].points.cvInner),rearOutputs:['L','R'].map(s=>axles.rear.wheels[s].points.cvInner)};
+    return {id:'serena-nc25-whole-vehicle',units:'normalized',time:this.time,axles,drivetrain,body:bodyGeometry(b,axles),
+      nodes:[{id:'body',parent:null},{id:'front',parent:'body'},{id:'rear',parent:'body'},{id:'engine',parent:'body',status:'context'},{id:'cvt',parent:'engine',status:'functional-principle'},{id:'driveline',parent:'body',status:'functional-principle'}],
       solver:{ok:axles.front.solver.ok&&axles.rear.solver.ok,maxError:Math.max(axles.front.solver.maxError,axles.rear.solver.maxError)},
       transform:p=>bodyTransform(p,b)};
   };

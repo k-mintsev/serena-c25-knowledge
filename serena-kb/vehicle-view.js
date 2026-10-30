@@ -45,7 +45,8 @@ globalThis.SerenaVehicleView = (()=>{
       const neutral=SerenaModel.solvePose(activeAxle,{}),p=neutral.wheels.L.points;
       const cross=['a1','a2','g1','b6','c1','c5','e1','f1','f2'].includes(selected);
       let points;
-      if(cross)points=[...neutral.frame.mounts.map(m=>m.point),neutral.wheels.L.points.stabMount,neutral.wheels.R.points.stabMount];
+      if(selected==='h1')points=[v(1.85,.32,.98),v(1.23,.32,.32),p.cvInner,neutral.wheels.R.points.cvInner];
+      else if(cross)points=[...neutral.frame.mounts.map(m=>m.point),neutral.wheels.L.points.stabMount,neutral.wheels.R.points.stabMount];
       else if(['a3','a4','a5','a6'].includes(selected))points=[p.frameFront,p.frameRear,p.armBall,p.hub];
       else if(['b1','b2','b3','b4','b5'].includes(selected))points=[p.strutTop,p.hub,p.springBottom];
       else if(['c6','d1','d2'].includes(selected))points=[p.steerInner,p.steerOuter,p.hub];
@@ -168,6 +169,7 @@ globalThis.SerenaVehicleView = (()=>{
     // Context housings meet the actual normalized CV inner ports; detailed future systems use the same ports.
     if(visibility.powertrain){
       for(const axle of visibleAxles){
+        if(axle==='front')continue;
         let casings='';
         const x=axle==='front'?1.52:-1.48;
         const polygon=[v(x-.22,-.24,.13),v(x+.22,-.24,.13),v(x+.22,.24,.13),v(x-.22,.24,.13),v(x-.22,-.24,.13)];
@@ -175,6 +177,31 @@ globalThis.SerenaVehicleView = (()=>{
         casings+=localLine(v(x,0,.13),v(x,0,.51),12);
         for(const s of [-1,1])casings+=localLine(v(x,0,.3),v(x,s*.24,.3),14);
         bodyGroup('powertrain-context',casings,.36,axle);
+      }
+      const d=vehicle.drivetrain,g=d.geometry;
+      if(axleVisible('front')&&!hiddenParts.has('h1')){
+        currentAxle='front';
+        const forward=vehicle.transform(v(1,0,0)),origin=vehicle.transform(v(0,0,0));
+        const xaxis=sub(forward,origin),zaxis=sub(vehicle.transform(v(0,0,1)),origin);
+        let mechanism='';
+        for(const [name,radius] of [['primary',d.belt.primary],['secondary',d.belt.secondary]]){
+          const centre=g[name],phase=d.phases[name];
+          mechanism+=circle3(centre,xaxis,zaxis,.29,2,'#e3ecf0')+circle3(centre,xaxis,zaxis,radius,5);
+          mechanism+=line(centre,add(centre,add(mul(xaxis,radius*Math.cos(phase)),mul(zaxis,radius*Math.sin(phase)))),4);
+        }
+        const angle=Math.acos((d.belt.primary-d.belt.secondary)/d.belt.distance);
+        for(const sign of [-1,1]){
+          const offset=radius=>add(mul(xaxis,-radius*Math.cos(angle)),mul(zaxis,sign*radius*Math.sin(angle)));
+          mechanism+=line(add(g.primary,offset(d.belt.primary)),add(g.secondary,offset(d.belt.secondary)),6);
+        }
+        mechanism+=line(g.secondary,g.frontDifferential,7)+g.frontOutputs.map(p=>line(g.frontDifferential,p,9)).join('');
+        group('h1',mechanism,g.primary);
+      }
+      if(view!=='front'&&visibility.otherAxle){
+        const front=g.frontDifferential,rear=g.rearDifferential;
+        const transfer=vehicle.transform(v(1.5,.02,.3)),coupling=vehicle.transform(v(-1.03,.02,.3));
+        bodyGroup('propshaft',line(front,transfer,7)+line(transfer,coupling,6),.65,'front');
+        bodyGroup('rear-coupling',line(coupling,rear,8)+g.rearOutputs.map(p=>line(rear,p,8)).join(''),d.rearDriven?.65:.20,'rear');
       }
     }
     if(visibility.future&&!reader&&axleVisible('front')){

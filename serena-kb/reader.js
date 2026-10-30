@@ -30,6 +30,8 @@
     const header=panel.querySelector('.modelheader');header.append(cameras);
     cameras.append(toolbar,header.querySelector('.viewtabs'));
     options.append(motion,layers);panel.append(options);
+    const drivetrain=part?.explanation?.drivetrain;
+    if(drivetrain)motion.append(template.content.querySelector('.drivetrain-controls'));
     if(part?.explanation?.diagram){
       const scene=document.createElement('div');scene.className='reader-vehicle-scene';
       scene.append(panel.querySelector('.model-stage'),controls,options);panel.append(scene);
@@ -37,6 +39,13 @@
       tabs.innerHTML='<button data-reader-scene="vehicle" aria-pressed="true">На автомобиле</button><button data-reader-scene="section" aria-pressed="false">Уплотнение в разрезе</button>';
       header.after(tabs);
       const cutaway=document.createElement('div');cutaway.className='reader-cutaway';cutaway.hidden=true;cutaway.innerHTML='<div id="seal-cutaway"></div>';panel.append(cutaway);
+    }
+    if(drivetrain){
+      const scene=document.createElement('div');scene.className='reader-vehicle-scene';scene.append(panel.querySelector('.model-stage'));panel.append(scene);
+      const tabs=document.createElement('div');tabs.className='reader-scene-tabs';tabs.setAttribute('role','group');tabs.setAttribute('aria-label','Расположение или принцип действия');
+      tabs.innerHTML='<button data-reader-scene="vehicle" aria-pressed="true">На автомобиле</button><button data-reader-scene="section" aria-pressed="false">Как работает CVT и привод</button>';header.after(tabs);
+      const cutaway=document.createElement('div');cutaway.className='reader-cutaway';cutaway.hidden=true;cutaway.innerHTML='<div id="drivetrain-cutaway"></div>';scene.after(cutaway);
+      panel.append(controls,options);
     }
     panel.querySelector('#reset').textContent='Сбросить';
     return panel.outerHTML;

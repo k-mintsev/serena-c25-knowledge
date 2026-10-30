@@ -19,7 +19,9 @@
     const s = db.sources[id];
     return s ? id === 'quote' ? `<a href="${esc(media.orderPdf)}" download="Заказ-наряд-8482.pdf">${esc(s.title)} · PDF ↓</a>` : link(s.url,s.title) : '';
   };
-  const sim = new SerenaModel.VehicleSimulation();
+  const sim = new SerenaModel.VehicleSimulation({drivetrain:db.vehicleArchitecture.drivetrain});
+  const drivetrainInputs={ratioPosition:0,gear:'D',converter:'fluid',rearProtection:false};
+  let driveTempo=4;
   let selected = 'a1', system = 'front', view = 'top', running = false, scenario = 'bump', elapsed = 0;
   let amplitude = .12, rack = 0, previousTime = 0, lastDraw = 0, isolated = true;
   let vehicle = sim.snapshot(), scene = vehicle.axles.front;
@@ -93,6 +95,7 @@
       <div class="hide-controls"><select id="mask-part" aria-label="Деталь для скрытия">${db.assemblies.map(a=>`<optgroup label="${esc(a.name)}">${[a.root,...a.children].map(id=>`<option value="${id}" ${id===selected?'selected':''}>№${byId[id].number} ${esc(byId[id].name)}</option>`).join('')}</optgroup>`).join('')}</select><button id="hide-part">Скрыть деталь</button><button id="restore-parts">Вернуть детали</button></div><p id="hidden-summary" class="muted"></p></details>
       <div class="controls"><button class="primary" id="play" aria-pressed="${running}">${running?'Ⅱ Пауза':'▶ Запустить'}</button><button id="reset">Сброс движения</button><select id="scenario" aria-label="Режим движения"><option value="bump">Наезд левыми колёсами по очереди</option><option value="both">Наезд двумя колёсами оси</option><option value="roll">Перекос колёс</option><option value="steer">Руление передними колёсами</option><option value="drive">Вращение приводов</option></select></div>
       <div class="slider-row"><label>Высота неровности <output id="amp-value">${fmt(amplitude)}</output><input id="amplitude" aria-label="Высота неровности" type="range" min="0" max="0.16" step="0.01" value="${amplitude}"></label><label>Положение рулевой рейки <output id="rack-value">${fmt(rack)}</output><input id="rack" aria-label="Положение рулевой рейки" type="range" min="-0.14" max="0.14" step="0.01" value="${rack}"></label></div>
+      ${byId[selected].explanation?.drivetrain?`<div class="drivetrain-controls"><label>Направление <select id="drive-gear" aria-label="Направление вращения"><option value="D">D · вперёд</option><option value="N">N · без тяги</option><option value="R">R · назад</option></select></label><label>Гидротрансформатор <select id="drive-converter" aria-label="Состояние гидротрансформатора"><option value="fluid">Передача через жидкость</option><option value="locked">Блокировка замкнута</option></select></label><label>От трогания к быстрому ходу <output id="drive-ratio-value"></output><input id="drive-ratio" aria-label="Передаточное отношение CVT" type="range" min="0" max="1" step="0.01" value="${drivetrainInputs.ratioPosition}"></label><label>Темп показа <output id="drive-tempo-value">${fmt(driveTempo)}×</output><input id="drive-tempo" aria-label="Темп показа вращения" type="range" min="1" max="8" step="0.5" value="${driveTempo}"></label><label class="drivetrain-protection"><input id="drive-protection" type="checkbox">Показать защитное отключение задней тяги</label><p>Это состояния объясняющей схемы; на C25 водитель не переключает полный привод вручную.</p></div>`:''}
       <div class="mechanism" id="mechanism-explanation"></div><div class="metrics" id="metrics"></div>
       <details><summary>Пружины, демпфирование и стабилизатор: изменить модель</summary><div class="slider-row">${[['spring','Жёсткость пружин',.3,2.5],['damping','Демпфирование',0,2.5],['antiroll','Жёсткость стабилизатора',0,2.5]].map(([id,name,min,max])=>`<label>${name} <output id="${id}-value">${fmt(sim.params[id])}×</output><input id="${id}" type="range" min="${min}" max="${max}" step="0.1" value="${sim.params[id]}" aria-label="${name}"></label>`).join('')}</div><p class="modelnotes">Один кузов связан с четырьмя колёсами; изменяются его подъём, крен и продольный наклон. 1× — учебная база, а не характеристика штатной детали.</p></details>
       <details><summary>Что рассчитано, что упрощено · расширение автомобиля</summary><div class="modelnotes"><p>Все три ракурса и крупные планы показывают одну геометрию. Колёса, рычаги и стойки подчиняются общим связям, а их верхние и внутренние опоры закреплены в едином кузове. Наезд задней оси происходит после передней с учебной задержкой; это не измеренная скорость автомобиля.</p><p>Кузов имеет одну позу с подъёмом, креном и тангажом; четыре неподрессоренные массы действуют на него через пружины, демпферы и стабилизаторы. Длины металлических рычагов и рулевых тяг сохраняются, стойки и внутренние шарниры допускают нужные изменения длины.</p><p>Силуэт кузова, кронштейны и формы деталей приблизительные. Численные размеры, упругость реальных сайлентблоков и масса вашей машины не измерены. Задний резиновый шарнир идеализирован сферическим, поперечные связи обобщены. Это объясняющая модель, не расчёт прочности, развала или ресурса.</p><p>Для двигателя, CVT и дальнейшего привода зарезервированы узлы и соединительные порты в той же системе координат. Сейчас видны только условные корпуса в местах соединения приводов; точная форма и внутренняя работа этих агрегатов ещё не построены.</p><p>Состав узлов: ${link('https://nissan.epc-data.com/serena/nc25/7181-mr20de/trans/401/?frame_no=NC25-002639','передняя подвеска NC25')}, ${link('https://nissan.epc-data.com/serena/nc25/7181-mr20de/trans/431/?frame_no=NC25-002639','задняя подвеска NC25')}. Принципы: ${sourceLink('mathworks')}, ${sourceLink('quarter')}.</p><p id="status"></p></div></details></section>`;
@@ -128,6 +131,11 @@
     document.querySelector(document.body.classList.contains('reader-page')?'.layer-panel .hide-controls':'.controls').append(overview);
     $('play').textContent=running?'Ⅱ Пауза':'▶ Запустить';
     $('play').setAttribute('aria-pressed',String(running));
+    if($('drive-gear')){
+      $('drive-gear').value=drivetrainInputs.gear;$('drive-converter').value=drivetrainInputs.converter;
+      $('drive-protection').checked=drivetrainInputs.rearProtection;
+    }
+    syncDrivetrain();
   }
   function renderHome(){
     imageMap=new Map();imageCounter=0;document.body.classList.add('reader-page');renderNavigation();
@@ -137,12 +145,21 @@
   }
 
   function refreshScene(){vehicle=sim.snapshot();scene=vehicle.axles[byId[selected].system];}
+  function syncDrivetrain(){
+    sim.step(0,{...sim.inputs,rack,...drivetrainInputs,drive:scenario==='drive'?driveTempo:0});
+    if($('drive-ratio')){
+      $('drive-ratio').disabled=drivetrainInputs.gear==='R';
+      $('drive-converter').disabled=drivetrainInputs.gear!=='D';
+      $('drive-ratio-value').textContent=fmt(sim.drivetrain.snapshot().ratio);
+    }
+  }
   function renderModel(viewName,preview=false){
     return SerenaVehicleView.render(vehicle,{view:viewName,selected,parts:byId,assemblies:db.assemblies,isolated,scope,visibility,hiddenParts,reader:document.body.classList.contains('reader-page')},preview);
   }
   function draw() {
     if(!$('model-main'))return;
     $('model-main').innerHTML=renderModel(view);
+    if($('drivetrain-cutaway'))$('drivetrain-cutaway').innerHTML=SerenaDrivetrainView.render(vehicle,db.vehicleArchitecture.drivetrainPresentation);
     $('view-caption').textContent=document.body.classList.contains('reader-page')?views[view]:`${views[view]} · №${byId[selected].number} ${byId[selected].name}${view==='front'?' · противоположная подвеска скрыта':view==='side'?' · правая половина скрыта':''}`;
     if($('model-previews'))$('model-previews').innerHTML=Object.keys(views).filter(x=>x!==view).map(x=>`<button class="view-preview" data-view="${x}" aria-label="Показать ракурс: ${views[x]}">${renderModel(x,true)}<span>${views[x]} ↗</span></button>`).join('');
     document.querySelectorAll('.viewtabs button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===view)));
@@ -165,6 +182,7 @@
     if(!byId[id])return;
     if(!belongsToPage(id)){location.assign(partRoute(id));return;}
     selected=id;system=byId[id].system;view=byId[id].bestView;isolated=true;scope='assembly';hiddenParts.delete(id);
+    if(byId[id].explanation?.drivetrain)scenario='drive';
     try{localStorage.setItem('serena-kb-part',id);localStorage.setItem('serena-kb-part-'+pageKind,id);}catch{}
     const procedureId=(db.service.procedures||[]).some(p=>p.id===procedure)?procedure:null;
     history.replaceState(null,'',`#part=${id}${procedureId?'&procedure='+encodeURIComponent(procedureId):''}`);
@@ -177,7 +195,7 @@
     $('play').textContent=running?'Ⅱ Пауза':'▶ Запустить';
     $('play').setAttribute('aria-pressed',String(running));
   }
-  function reset() {sim.reset();elapsed=0;refreshScene();draw();}
+  function reset() {sim.reset();elapsed=0;syncDrivetrain();refreshScene();draw();}
   function animate(now) {
     requestAnimationFrame(animate);
     if(!running){previousTime=now;return;}
@@ -188,13 +206,13 @@
     if(scenario==='both')roadL=roadR=amplitude*pulse;
     if(scenario==='roll'){roadL=amplitude*Math.sin(elapsed*2.2);roadR=-roadL;}
     if(scenario==='steer')steer=.14*Math.sin(elapsed*1.3);
-    if(scenario==='drive')drive=2;
+    if(scenario==='drive')drive=driveTempo;
     const rearPhase=(elapsed-.85)%3.6,rearPulse=elapsed>.85&&rearPhase<1.4?Math.sin(Math.PI*rearPhase/1.4)**2:0;
     let roadRL=0,roadRR=0;
     if(scenario==='bump')roadRL=amplitude*rearPulse;
     if(scenario==='both')roadRL=roadRR=amplitude*rearPulse;
     if(scenario==='roll'){roadRL=roadL;roadRR=roadR;}
-    sim.step(dt,{roadFL:roadL,roadFR:roadR,roadRL,roadRR,rack:steer,drive});
+    sim.step(dt,{roadFL:roadL,roadFR:roadR,roadRL,roadRR,rack:steer,drive,...drivetrainInputs});
     if(now-lastDraw>40){refreshScene();draw();lastDraw=now;}
   }
   function exportData() {
@@ -226,11 +244,21 @@
     if(e.target.id==='shell-mode'){visibility.shell=e.target.value;draw();}
     if(e.target.dataset.layerToggle){visibility[e.target.dataset.layerToggle]=e.target.checked;draw();}
     if(e.target.id==='scenario'){scenario=e.target.value;reset();}
+    if(e.target.id==='drive-gear'||e.target.id==='drive-converter'||e.target.id==='drive-protection'){
+      drivetrainInputs.gear=$('drive-gear').value;drivetrainInputs.converter=$('drive-converter').value;
+      if(drivetrainInputs.gear!=='D')drivetrainInputs.converter='fluid';
+      $('drive-converter').value=drivetrainInputs.converter;$('drive-converter').disabled=drivetrainInputs.gear!=='D';
+      drivetrainInputs.rearProtection=$('drive-protection').checked;syncDrivetrain();refreshScene();draw();
+    }
   });
   document.addEventListener('input',e=>{
     const id=e.target.id;
     if(id==='amplitude'){amplitude=+e.target.value;$('amp-value').textContent=fmt(amplitude);}
     if(id==='rack') {rack=+e.target.value;$('rack-value').textContent=fmt(rack);sim.step(0,{...sim.inputs,rack});refreshScene();draw();}
+    if(id==='drive-ratio'||id==='drive-tempo'){
+      drivetrainInputs.ratioPosition=+$('drive-ratio').value;driveTempo=+$('drive-tempo').value;
+      $('drive-tempo-value').textContent=fmt(driveTempo)+'×';syncDrivetrain();refreshScene();draw();
+    }
     if(['spring','damping','antiroll'].includes(id)){sim.setParameters({[id]:+e.target.value});$(id+'-value').textContent=fmt(+e.target.value)+'×';}
   });
   $('zoom').addEventListener('click',e=>{if(e.target===$('zoom'))$('zoom').close();});
